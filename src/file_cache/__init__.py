@@ -1,4 +1,5 @@
 import json
+import types
 import asyncio
 import hashlib
 import functools
