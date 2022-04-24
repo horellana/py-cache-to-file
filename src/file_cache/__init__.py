@@ -1,5 +1,5 @@
-import json
 import types
+import pickle
 import asyncio
 import hashlib
 import functools
@@ -9,7 +9,12 @@ import aiofiles
 
 def cache_to_file(f):
     def generate_file_name(*args, **kwargs):
-        return hashlib.sha256(json.dumps(args).encode()).hexdigest()
+        args = (str(pickle.dumps(a)) for a in args)
+        args = sorted(args)
+
+        file_name = hashlib.sha256("".join(args).encode()).hexdigest()
+
+        return file_name
 
     @functools.wraps(f)
     async def async_wrapper(*args, **kwargs):
@@ -17,16 +22,19 @@ def cache_to_file(f):
         cache_file_name = f"/tmp/{generate_file_name(*args)}"
 
         try:
-            async with aiofiles.open(cache_file_name, "r") as fh:
-                return json.loads(await fh.read())
-        except Exception as e:
-            async with aiofiles.open(cache_file_name, "w") as fh:
+            async with aiofiles.open(cache_file_name, "rb") as fh:
+                content = await fh.read()
+                return pickle.loads(content.encode())
+        except FileNotFoundError as e:
+            async with aiofiles.open(cache_file_name, "wb") as fh:
                 value = await f(*args, **kwargs)
 
                 if isinstance(value, types.GeneratorType):
                     value = list(value)
 
-                await fh.write(json.dumps(value))
+                value = pickle.dumps(value)
+
+                await fh.write(value)
 
                 return value
 
@@ -36,16 +44,16 @@ def cache_to_file(f):
         cache_file_name = f"/tmp/{generate_file_name(*args)}"
 
         try:
-            with open(cache_file_name, "r") as fh:
-                return json.loads(fh.read())
-        except Exception as e:
-            with open(cache_file_name, "w") as fh:
+            with open(cache_file_name, "rb") as fh:
+                return pickle.load(fh)
+        except FileNotFoundError as e:
+            with open(cache_file_name, "wb") as fh:
                 value = f(*args, **kwargs)
 
                 if isinstance(value, types.GeneratorType):
                     value = list(value)
 
-                fh.write(json.dumps(value))
+                pickle.dump(value, fh)
 
                 return value
 
