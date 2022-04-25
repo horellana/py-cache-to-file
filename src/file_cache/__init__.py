@@ -46,6 +46,10 @@ def cache_to_file(f):
         try:
             with open(cache_file_name, "rb") as fh:
                 return pickle.load(fh)
+
+        except EOFError:
+            return f(*args, **kwargs)
+
         except FileNotFoundError as e:
             with open(cache_file_name, "wb") as fh:
                 value = f(*args, **kwargs)
